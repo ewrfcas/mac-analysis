@@ -10,5 +10,5 @@ import com.mac.util.Response;
 public interface MacService {
     Response<String> analysis();
     Response<JPAMac> getJPAMacByMac(String Mac);
-    Response<String>save();
+    Response<String>save(String fileName);
 }
