@@ -1,7 +1,7 @@
 package com.mac.service;
 
+import com.mac.model.CustomData;
 import com.mac.model.CustomDateRow;
-import com.mac.model.jpa.JPAMac;
 import com.mac.util.Response;
 
 /**
@@ -10,6 +10,6 @@ import com.mac.util.Response;
 @SuppressWarnings("all")
 public interface MacService {
     Response<String> analysis();
-    Response<JPAMac> getJPAMacByMac(String Mac);
     Response<CustomDateRow>save(String fileName);
+    Response<CustomData>getAllCustoms(String startTime,String endTime);
 }

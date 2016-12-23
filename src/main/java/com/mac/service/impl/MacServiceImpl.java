@@ -2,15 +2,10 @@ package com.mac.service.impl;
 
 import com.mac.dao.CustomDao;
 import com.mac.dao.CustomDateDao;
-import com.mac.dao.MacDao;
 import com.mac.dao.TimeNumDao;
-import com.mac.model.CustomDataWithDate;
-import com.mac.model.CustomDateRow;
-import com.mac.model.Data;
-import com.mac.model.DataDetail;
+import com.mac.model.*;
 import com.mac.model.jpa.JPACustom;
 import com.mac.model.jpa.JPACustomDate;
-import com.mac.model.jpa.JPAMac;
 import com.mac.model.jpa.JPATimeNum;
 import com.mac.service.MacService;
 import com.mac.util.Response;
@@ -33,8 +28,6 @@ import java.util.*;
 @SuppressWarnings("all")
 @Service
 public class MacServiceImpl implements MacService {
-    @Autowired
-    private transient MacDao macDao;
     @Autowired
     private transient CustomDao customDao;
     @Autowired
@@ -122,7 +115,6 @@ public class MacServiceImpl implements MacService {
 //                bwname.newLine();
             }
             //json
-
             excelWrite.write(outputStream);
             outputStream.flush();
             outputStream.close();
@@ -138,14 +130,11 @@ public class MacServiceImpl implements MacService {
         }
     }
 
-    public Response<JPAMac> getJPAMacByMac(String mac){
-        Response<JPAMac>response=new Response<>();
-        return response;
-    }
-
+    @Override
     public Response<CustomDateRow> save(String fileName){
         Response<CustomDateRow>response=new Response<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
         try{
             List<Data> datas=new ArrayList<Data>();
             BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\"+fileName));
@@ -180,14 +169,14 @@ public class MacServiceImpl implements MacService {
                 }
             }
             //sql存储
+            String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
             JPACustomDate jpaCustomDate=new JPACustomDate();
             jpaCustomDate.setCustom_hi_num(0);//未实现
             jpaCustomDate.setCustom_first_num(0);
             jpaCustomDate.setCustom_num(0);
             jpaCustomDate.setAvg_stay_time(0);
             jpaCustomDate.setDevice_num(datas.size());
-            jpaCustomDate.setDate(datas.get(0).getDataDetails().get(0).getTime());
-            jpaCustomDate.setId(new Date().toString());
+            jpaCustomDate.setDate(idTime);
             //统计早上8点到晚上20点各个时间段人数
             HashMap<Integer,Integer> timeHashMap=new HashMap<>();
             for(int i=8;i<=20;i++){
@@ -219,23 +208,41 @@ public class MacServiceImpl implements MacService {
                 }
             }
             jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time() / jpaCustomDate.getCustom_num());
+            if(customDateDao.exists(idTime)){
+                customDateDao.delete(idTime);
+            }
             customDateDao.save(jpaCustomDate);
             List<Integer> numFrom8To20=new ArrayList<>();
+            JPATimeNum jpaTimeNum=new JPATimeNum();
+            jpaTimeNum.setDate(idTime);
             for(int i=8;i<=20;i++){
-                JPATimeNum jpaTimeNum=new JPATimeNum();
-                jpaTimeNum.setId(new Date().toString()+":"+i);
-                jpaTimeNum.setDate(datas.get(0).getDataDetails().get(0).getTime());
-                jpaTimeNum.setTime(i);
-                jpaTimeNum.setNum(timeHashMap.get(i));
-                timeNumDao.save(jpaTimeNum);
+                switch (i){
+                    case 8:jpaTimeNum.setTime_8(timeHashMap.get(i));break;
+                    case 9:jpaTimeNum.setTime_9(timeHashMap.get(i));break;
+                    case 10:jpaTimeNum.setTime_10(timeHashMap.get(i));break;
+                    case 11:jpaTimeNum.setTime_11(timeHashMap.get(i));break;
+                    case 12:jpaTimeNum.setTime_12(timeHashMap.get(i));break;
+                    case 13:jpaTimeNum.setTime_13(timeHashMap.get(i));break;
+                    case 14:jpaTimeNum.setTime_14(timeHashMap.get(i));break;
+                    case 15:jpaTimeNum.setTime_15(timeHashMap.get(i));break;
+                    case 16:jpaTimeNum.setTime_16(timeHashMap.get(i));break;
+                    case 17:jpaTimeNum.setTime_17(timeHashMap.get(i));break;
+                    case 18:jpaTimeNum.setTime_18(timeHashMap.get(i));break;
+                    case 19:jpaTimeNum.setTime_19(timeHashMap.get(i));break;
+                    case 20:jpaTimeNum.setTime_20(timeHashMap.get(i));break;
+                }
                 numFrom8To20.add(timeHashMap.get(i));
             }
+            if(timeNumDao.exists(idTime)){
+                timeNumDao.delete(idTime);
+            }
+            timeNumDao.save(jpaTimeNum);
             //返回成功插入的数据
             CustomDateRow customDateRow=new CustomDateRow();
             customDateRow.setDayNum(1);
             customDateRow.setNumFrom8To20(numFrom8To20);
             CustomDataWithDate customDataWithDate=new CustomDataWithDate();
-            customDataWithDate.setDate(jpaCustomDate.getDate());
+            customDataWithDate.setDate(sdf2.parse(jpaCustomDate.getDate()));
             customDataWithDate.setCustomAllD(jpaCustomDate.getCustom_num());
             customDataWithDate.setCustomFirstD(jpaCustomDate.getCustom_first_num());
             customDataWithDate.setCustomHID(jpaCustomDate.getCustom_hi_num());
@@ -249,6 +256,79 @@ public class MacServiceImpl implements MacService {
             return response;
         }catch (Exception e){
             e.printStackTrace();;
+            response.setStatus(ResponseStatus.FAIL);
+            response.setMessage(e.toString());
+            return response;
+        }
+    }
+
+    @Override
+    public Response<CustomData> getAllCustoms(String startTime,String endTime){
+        Response<CustomData> response=new Response<>();
+        CustomData customData=new CustomData();
+        customData.setCustomAll(0);
+        customData.setCustomFirst(0);
+        customData.setCustomHI(0);
+        customData.setDeviceNum(0);
+        customData.setStayTime(0);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
+        try{
+            Date startDate=sdf.parse(startTime);
+            Date endDate=sdf.parse(endTime);
+            //获取期间每日数据
+            CustomDateRow customDateRow=new CustomDateRow();
+            int dayNum=(int)((endDate.getTime()-startDate.getTime())/1000*60*24)+1;
+            customDateRow.setDayNum(dayNum);
+            Date tempDate=startDate;
+            Calendar cal = Calendar.getInstance();
+            List<Integer> numFrom8To20=new ArrayList<>();
+            for(int i=0;i<=12;i++){
+                numFrom8To20.add(0);
+            }
+            List<CustomDataWithDate> customDataWithDates=new ArrayList<>();
+            JPATimeNum jpaTimeNum=new JPATimeNum();
+            JPACustomDate jpaCustomDate=new JPACustomDate();
+            for(int i=0;i<dayNum;i++){
+                jpaCustomDate=customDateDao.findOne(sdf2.format(tempDate));
+                CustomDataWithDate customDataWithDate=new CustomDataWithDate();
+                customDataWithDate.setDate(sdf2.parse(jpaCustomDate.getDate()));
+                customDataWithDate.setCustomHID(jpaCustomDate.getCustom_hi_num());
+                customDataWithDate.setCustomFirstD(jpaCustomDate.getCustom_first_num());
+                customDataWithDate.setCustomAllD(jpaCustomDate.getCustom_num());
+                customDataWithDate.setStayTimeD(jpaCustomDate.getAvg_stay_time());
+                customDataWithDates.add(customDataWithDate);
+                jpaTimeNum=timeNumDao.findOne(sdf2.format(tempDate));
+                numFrom8To20.set(0,numFrom8To20.get(0)+jpaTimeNum.getTime_8()/dayNum);
+                numFrom8To20.set(1,numFrom8To20.get(1)+jpaTimeNum.getTime_9()/dayNum);
+                numFrom8To20.set(2,numFrom8To20.get(2)+jpaTimeNum.getTime_10()/dayNum);
+                numFrom8To20.set(3,numFrom8To20.get(3)+jpaTimeNum.getTime_11()/dayNum);
+                numFrom8To20.set(4,numFrom8To20.get(4)+jpaTimeNum.getTime_12()/dayNum);
+                numFrom8To20.set(5,numFrom8To20.get(5)+jpaTimeNum.getTime_13()/dayNum);
+                numFrom8To20.set(6,numFrom8To20.get(6)+jpaTimeNum.getTime_14()/dayNum);
+                numFrom8To20.set(7,numFrom8To20.get(7)+jpaTimeNum.getTime_15()/dayNum);
+                numFrom8To20.set(8,numFrom8To20.get(8)+jpaTimeNum.getTime_16()/dayNum);
+                numFrom8To20.set(9,numFrom8To20.get(9)+jpaTimeNum.getTime_17()/dayNum);
+                numFrom8To20.set(10,numFrom8To20.get(10)+jpaTimeNum.getTime_18()/dayNum);
+                numFrom8To20.set(11,numFrom8To20.get(11)+jpaTimeNum.getTime_19()/dayNum);
+                numFrom8To20.set(12, numFrom8To20.get(12) + jpaTimeNum.getTime_20() / dayNum);
+                customData.setDeviceNum(customData.getDeviceNum()+jpaCustomDate.getDevice_num());
+                customData.setStayTime(customData.getStayTime()+jpaCustomDate.getAvg_stay_time()/dayNum);
+                customData.setCustomHI(customData.getCustomHI()+jpaCustomDate.getCustom_hi_num());
+                customData.setCustomFirst(customData.getCustomFirst()+jpaCustomDate.getCustom_first_num());
+                customData.setCustomAll(customData.getCustomAll()+jpaCustomDate.getCustom_num());
+                cal.setTime(tempDate);
+                cal.add(Calendar.DATE, 1);
+                tempDate=cal.getTime();
+            }
+            customDateRow.setCustomDataWithDates(customDataWithDates);
+            customDateRow.setNumFrom8To20(numFrom8To20);
+            customData.setCustomDateRow(customDateRow);
+            response.setStatus(ResponseStatus.SUCCESS);
+            response.setMessage("数据查询成功");
+            response.setData(customData);
+            return response;
+        }catch (Exception e){
             response.setStatus(ResponseStatus.FAIL);
             response.setMessage(e.toString());
             return response;

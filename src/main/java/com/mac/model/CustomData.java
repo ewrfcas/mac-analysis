@@ -19,7 +19,7 @@ public class CustomData {
     private int customHI;
 
     //客流平均驻店时长
-    private int stayTime;
+    private double stayTime;
 
     //期间每日数据
     private CustomDateRow customDateRow;

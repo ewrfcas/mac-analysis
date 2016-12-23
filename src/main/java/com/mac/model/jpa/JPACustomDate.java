@@ -5,7 +5,6 @@ import lombok.Data;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import java.util.Date;
 
 /**
  * Created by ewrfcas on 2016/12/22.
@@ -14,8 +13,9 @@ import java.util.Date;
 @Data
 @Table(name = "mac_data_date")
 public class JPACustomDate {
+
     @Id
-    private String id;
+    private String date;
 
     private int device_num;
 
@@ -27,5 +27,4 @@ public class JPACustomDate {
 
     private double avg_stay_time;
 
-    private Date date;
 }

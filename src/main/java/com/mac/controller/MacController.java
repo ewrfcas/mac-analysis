@@ -28,13 +28,7 @@ public class MacController {
     //输入开始时间，结束时间 返回开始时间——结束时间（日）中间的客流信息CustomData
     @RequestMapping(value="/get/allcustoms/{startTime}/{endTime}" ,method = RequestMethod.GET)
     public Response<CustomData> getAllCustoms(@PathVariable("startTime")String startTime,@PathVariable("endTime")String endTime){
-        return null;
-    }
-
-    //输入开始时间，结束时间 返回期间每日客流信息
-    @RequestMapping(value="/get/daycustoms/{startTime}/{endTime}" ,method = RequestMethod.GET)
-    public Response<CustomDateRow> getDayCustoms(@PathVariable("startTime")String startTime,@PathVariable("endTime")String endTime){
-        return null;
+        return macService.getAllCustoms(startTime,endTime);
     }
 
     //输入开始时间，结束时间 返回高意向客流信息
