@@ -15,5 +15,6 @@ public class CustomDateRow {
     private List<CustomDataWithDate> customDataWithDates;
 
     //期间客流时段信息
-    private CustomDataWithTime customDataWithTime;
+    //早上8点到晚上20点各时间段平均人数
+    private List<Integer> numFrom8To20;
 }

@@ -3,14 +3,19 @@ package com.mac.service.impl;
 import com.mac.dao.CustomDao;
 import com.mac.dao.CustomDateDao;
 import com.mac.dao.MacDao;
+import com.mac.dao.TimeNumDao;
+import com.mac.model.CustomDataWithDate;
+import com.mac.model.CustomDateRow;
 import com.mac.model.Data;
 import com.mac.model.DataDetail;
 import com.mac.model.jpa.JPACustom;
 import com.mac.model.jpa.JPACustomDate;
 import com.mac.model.jpa.JPAMac;
+import com.mac.model.jpa.JPATimeNum;
 import com.mac.service.MacService;
 import com.mac.util.Response;
 import com.mac.util.ResponseStatus;
+import com.mac.util.TimeSort;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -20,10 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by ewrfcas on 2016/12/20.
@@ -37,6 +39,10 @@ public class MacServiceImpl implements MacService {
     private transient CustomDao customDao;
     @Autowired
     private transient CustomDateDao customDateDao;
+    @Autowired
+    private transient TimeNumDao timeNumDao;
+    @Autowired
+    private transient TimeSort timeSort;
 
     @Override
     public Response<String> analysis(){
@@ -137,14 +143,15 @@ public class MacServiceImpl implements MacService {
         return response;
     }
 
-    public Response<String> save(String fileName){
-        Response<String>response=new Response<>();
+    public Response<CustomDateRow> save(String fileName){
+        Response<CustomDateRow>response=new Response<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         try{
             List<Data> datas=new ArrayList<Data>();
             BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\"+fileName));
             String s=null;
             boolean contian=false;
+            //解析数据
             while((s=brname.readLine())!=null){
                 contian=false;
                 JSONObject json=new JSONObject(s);
@@ -172,49 +179,73 @@ public class MacServiceImpl implements MacService {
                     datas.add(data);
                 }
             }
+            //sql存储
             JPACustomDate jpaCustomDate=new JPACustomDate();
             jpaCustomDate.setCustom_hi_num(0);//未实现
             jpaCustomDate.setCustom_first_num(0);
             jpaCustomDate.setCustom_num(0);
             jpaCustomDate.setAvg_stay_time(0);
             jpaCustomDate.setDevice_num(datas.size());
-            jpaCustomDate.setDate(new Date());
-            jpaCustomDate.setId(sdf.format(new Date()));
+            jpaCustomDate.setDate(datas.get(0).getDataDetails().get(0).getTime());
+            jpaCustomDate.setId(new Date().toString());
+            //统计早上8点到晚上20点各个时间段人数
+            HashMap<Integer,Integer> timeHashMap=new HashMap<>();
+            for(int i=8;i<=20;i++){
+                timeHashMap.put(i,0);
+            }
             for(Data data:datas){
-                if(data.getNum()>2&&data.getNum()<200){
+                if(data.getNum()>2&&data.getNum()<200){//筛选非客户
+                    Collections.sort(data.getDataDetails(),timeSort);
+                    for(DataDetail dataDetail:data.getDataDetails()){//遍历得到各时间段情况
+                        int hour=dataDetail.getTime().getHours();
+                        if(hour>=8&&hour<=20){
+                            timeHashMap.put(hour,timeHashMap.get(hour)+1);
+                        }
+                    }
+                    Date firstTime=data.getDataDetails().get(data.getDataDetails().size()-1).getTime();
+                    Date lastTime=data.getDataDetails().get(0).getTime();
                     jpaCustomDate.setCustom_num(jpaCustomDate.getCustom_num() + 1);
                     if(!customDao.exists(data.getMAC())){
+                        //判断为首次入店客户
                         jpaCustomDate.setCustom_first_num(jpaCustomDate.getCustom_first_num()+1);
                         JPACustom jpaCustom=new JPACustom();
                         jpaCustom.setMac(data.getMAC());
-                        Date firstTime=new Date();
-                        for(DataDetail dataDetail:data.getDataDetails()){
-                            if(dataDetail.getTime().before(firstTime)){
-                                firstTime=dataDetail.getTime();
-                            }
-                        }
-                        jpaCustom.setTime_first(firstTime);
+                        jpaCustom.setTime_first(data.getDataDetails().get(0).getTime());
                         customDao.save(jpaCustom);
                     }
-                    Date firstTime=new Date();
-                    Date lastTime=new Date();
-                    lastTime.setTime(0);
-                    for(DataDetail dataDetail:data.getDataDetails()){
-                        if(dataDetail.getTime().before(firstTime)){
-                            firstTime=dataDetail.getTime();
-                        }
-                        if(dataDetail.getTime().after(lastTime)){
-                            lastTime=dataDetail.getTime();
-                        }
-                    }
+                    //计算驻店时长
                     double stayTime=(lastTime.getTime()-firstTime.getTime())/60000.00;
                     jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time()+stayTime);
                 }
             }
-            jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time()/jpaCustomDate.getCustom_num());
+            jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time() / jpaCustomDate.getCustom_num());
             customDateDao.save(jpaCustomDate);
+            List<Integer> numFrom8To20=new ArrayList<>();
+            for(int i=8;i<=20;i++){
+                JPATimeNum jpaTimeNum=new JPATimeNum();
+                jpaTimeNum.setId(new Date().toString()+":"+i);
+                jpaTimeNum.setDate(datas.get(0).getDataDetails().get(0).getTime());
+                jpaTimeNum.setTime(i);
+                jpaTimeNum.setNum(timeHashMap.get(i));
+                timeNumDao.save(jpaTimeNum);
+                numFrom8To20.add(timeHashMap.get(i));
+            }
+            //返回成功插入的数据
+            CustomDateRow customDateRow=new CustomDateRow();
+            customDateRow.setDayNum(1);
+            customDateRow.setNumFrom8To20(numFrom8To20);
+            CustomDataWithDate customDataWithDate=new CustomDataWithDate();
+            customDataWithDate.setDate(jpaCustomDate.getDate());
+            customDataWithDate.setCustomAllD(jpaCustomDate.getCustom_num());
+            customDataWithDate.setCustomFirstD(jpaCustomDate.getCustom_first_num());
+            customDataWithDate.setCustomHID(jpaCustomDate.getCustom_hi_num());
+            customDataWithDate.setStayTimeD(jpaCustomDate.getAvg_stay_time());
+            List<CustomDataWithDate> customDataWithDates=new ArrayList<>();
+            customDataWithDates.add(customDataWithDate);
+            customDateRow.setCustomDataWithDates(customDataWithDates);
             response.setStatus(ResponseStatus.SUCCESS);
             response.setMessage("数据插入成功");
+            response.setData(customDateRow);
             return response;
         }catch (Exception e){
             e.printStackTrace();;

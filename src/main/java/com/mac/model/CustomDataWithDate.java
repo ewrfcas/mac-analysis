@@ -21,5 +21,5 @@ public class CustomDataWithDate {
     private int customHID;
 
     //当日平均驻店时长
-    private int stayTimeD;
+    private double stayTimeD;
 }

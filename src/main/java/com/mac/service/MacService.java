@@ -1,5 +1,6 @@
 package com.mac.service;
 
+import com.mac.model.CustomDateRow;
 import com.mac.model.jpa.JPAMac;
 import com.mac.util.Response;
 
@@ -10,5 +11,5 @@ import com.mac.util.Response;
 public interface MacService {
     Response<String> analysis();
     Response<JPAMac> getJPAMacByMac(String Mac);
-    Response<String>save(String fileName);
+    Response<CustomDateRow>save(String fileName);
 }
