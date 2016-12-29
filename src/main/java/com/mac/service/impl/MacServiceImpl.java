@@ -139,23 +139,11 @@ public class MacServiceImpl implements MacService {
             List<Data> datas=new ArrayList<Data>();
             BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\"+fileName));
             String s=null;
-            boolean contian=false;
+            HashMap<String,Integer> hashData=new HashMap<>();
             //解析数据
             while((s=brname.readLine())!=null){
-                contian=false;
                 JSONObject json=new JSONObject(s);
-                for(Data data:datas){
-                    if(data.getMAC().equals(json.getString("MAC"))){
-                        contian=true;
-                        data.setNum(data.getNum() + 1);
-                        DataDetail dataDetail=new DataDetail();
-                        dataDetail.setDeviceId(json.getString("Device"));
-                        dataDetail.setRSSI(json.getInt("RSSI"));
-                        dataDetail.setTime(sdf.parse(json.getString("Time")));
-                        data.getDataDetails().add(dataDetail);
-                    }
-                }
-                if(!contian){
+                if(!hashData.containsKey(json.getString("MAC"))){
                     Data data=new Data();
                     data.setNum(1);
                     data.setMAC(json.getString("MAC"));
@@ -166,6 +154,15 @@ public class MacServiceImpl implements MacService {
                     data.setDataDetails(new ArrayList<DataDetail>());
                     data.getDataDetails().add(dataDetail);
                     datas.add(data);
+                    hashData.put(json.getString("MAC"),datas.size()-1);
+                }else{
+                    int j=hashData.get(json.getString("MAC"));
+                    datas.get(j).setNum(datas.get(j).getNum()+1);
+                    DataDetail dataDetail=new DataDetail();
+                    dataDetail.setDeviceId(json.getString("Device"));
+                    dataDetail.setRSSI(json.getInt("RSSI"));
+                    dataDetail.setTime(sdf.parse(json.getString("Time")));
+                    datas.get(j).getDataDetails().add(dataDetail);
                 }
             }
             //sql存储
@@ -184,11 +181,13 @@ public class MacServiceImpl implements MacService {
             }
             for(Data data:datas){
                 if(data.getNum()>2&&data.getNum()<200){//筛选非客户
-                    Collections.sort(data.getDataDetails(),timeSort);
+                    Collections.sort(data.getDataDetails(),timeSort);//按时间排序
+                    int[] oneDevice=new int[13];
                     for(DataDetail dataDetail:data.getDataDetails()){//遍历得到各时间段情况
                         int hour=dataDetail.getTime().getHours();
-                        if(hour>=8&&hour<=20){
+                        if(hour>=8&&hour<=20&&oneDevice[hour-8]==0){
                             timeHashMap.put(hour,timeHashMap.get(hour)+1);
+                            oneDevice[hour-8]++;
                         }
                     }
                     Date firstTime=data.getDataDetails().get(data.getDataDetails().size()-1).getTime();
@@ -299,19 +298,19 @@ public class MacServiceImpl implements MacService {
                 customDataWithDate.setStayTimeD(jpaCustomDate.getAvg_stay_time());
                 customDataWithDates.add(customDataWithDate);
                 jpaTimeNum=timeNumDao.findOne(sdf2.format(tempDate));
-                numFrom8To20.set(0,numFrom8To20.get(0)+jpaTimeNum.getTime_8()/dayNum);
-                numFrom8To20.set(1,numFrom8To20.get(1)+jpaTimeNum.getTime_9()/dayNum);
-                numFrom8To20.set(2,numFrom8To20.get(2)+jpaTimeNum.getTime_10()/dayNum);
-                numFrom8To20.set(3,numFrom8To20.get(3)+jpaTimeNum.getTime_11()/dayNum);
-                numFrom8To20.set(4,numFrom8To20.get(4)+jpaTimeNum.getTime_12()/dayNum);
-                numFrom8To20.set(5,numFrom8To20.get(5)+jpaTimeNum.getTime_13()/dayNum);
-                numFrom8To20.set(6,numFrom8To20.get(6)+jpaTimeNum.getTime_14()/dayNum);
-                numFrom8To20.set(7,numFrom8To20.get(7)+jpaTimeNum.getTime_15()/dayNum);
-                numFrom8To20.set(8,numFrom8To20.get(8)+jpaTimeNum.getTime_16()/dayNum);
-                numFrom8To20.set(9,numFrom8To20.get(9)+jpaTimeNum.getTime_17()/dayNum);
-                numFrom8To20.set(10,numFrom8To20.get(10)+jpaTimeNum.getTime_18()/dayNum);
-                numFrom8To20.set(11,numFrom8To20.get(11)+jpaTimeNum.getTime_19()/dayNum);
-                numFrom8To20.set(12, numFrom8To20.get(12) + jpaTimeNum.getTime_20() / dayNum);
+                numFrom8To20.set(0,numFrom8To20.get(0)+jpaTimeNum.getTime_8());
+                numFrom8To20.set(1,numFrom8To20.get(1)+jpaTimeNum.getTime_9());
+                numFrom8To20.set(2,numFrom8To20.get(2)+jpaTimeNum.getTime_10());
+                numFrom8To20.set(3,numFrom8To20.get(3)+jpaTimeNum.getTime_11());
+                numFrom8To20.set(4,numFrom8To20.get(4)+jpaTimeNum.getTime_12());
+                numFrom8To20.set(5,numFrom8To20.get(5)+jpaTimeNum.getTime_13());
+                numFrom8To20.set(6,numFrom8To20.get(6)+jpaTimeNum.getTime_14());
+                numFrom8To20.set(7,numFrom8To20.get(7)+jpaTimeNum.getTime_15());
+                numFrom8To20.set(8,numFrom8To20.get(8)+jpaTimeNum.getTime_16());
+                numFrom8To20.set(9,numFrom8To20.get(9)+jpaTimeNum.getTime_17());
+                numFrom8To20.set(10,numFrom8To20.get(10)+jpaTimeNum.getTime_18());
+                numFrom8To20.set(11,numFrom8To20.get(11)+jpaTimeNum.getTime_19());
+                numFrom8To20.set(12,numFrom8To20.get(12)+jpaTimeNum.getTime_20());
                 customData.setDeviceNum(customData.getDeviceNum()+jpaCustomDate.getDevice_num());
                 customData.setStayTime(customData.getStayTime()+jpaCustomDate.getAvg_stay_time()/dayNum);
                 customData.setCustomHI(customData.getCustomHI()+jpaCustomDate.getCustom_hi_num());
