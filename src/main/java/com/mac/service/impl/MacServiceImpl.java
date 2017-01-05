@@ -165,6 +165,7 @@ public class MacServiceImpl implements MacService {
                     datas.get(j).getDataDetails().add(dataDetail);
                 }
             }
+            //统计策略：每个mac地址的某个device的平均RSSI和驻店时间（最晚时间-最早时间）作为2维数据，有3个device则是6维
             //sql存储
             String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
             JPACustomDate jpaCustomDate=new JPACustomDate();
