@@ -36,6 +36,8 @@ public class MacServiceImpl implements MacService {
     private transient TimeNumDao timeNumDao;
     @Autowired
     private transient TimeSort timeSort;
+    @Autowired
+    private transient DBSCANImpl dbscan;
 
     @Override
     public Response<String> analysis(){
@@ -45,7 +47,7 @@ public class MacServiceImpl implements MacService {
         try{
             BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\2016-11-21_store_139.txt"));
             BufferedWriter bwname = new BufferedWriter(new FileWriter("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\result.json"));
-            File excelFile = new File("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\·ÖÎö½á¹û.xlsx");
+            File excelFile = new File("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\åˆ†æç»“æœ.xlsx");
             OutputStream outputStream=new FileOutputStream(excelFile);
             XSSFWorkbook excelWrite = new XSSFWorkbook();
             String s=null;
@@ -140,7 +142,7 @@ public class MacServiceImpl implements MacService {
             BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\"+fileName));
             String s=null;
             HashMap<String,Integer> hashData=new HashMap<>();
-            //½âÎöÊı¾İ
+            //è§£ææ•°æ®
             while((s=brname.readLine())!=null){
                 JSONObject json=new JSONObject(s);
                 if(!hashData.containsKey(json.getString("MAC"))){
@@ -165,26 +167,27 @@ public class MacServiceImpl implements MacService {
                     datas.get(j).getDataDetails().add(dataDetail);
                 }
             }
-            //Í³¼Æ²ßÂÔ£ºÃ¿¸ömacµØÖ·µÄÄ³¸ödeviceµÄÆ½¾ùRSSIºÍ×¤µêÊ±¼ä£¨×îÍíÊ±¼ä-×îÔçÊ±¼ä£©×÷Îª2Î¬Êı¾İ£¬ÓĞ3¸ödeviceÔòÊÇ6Î¬
-            //sql´æ´¢
+            //èšç±»ç®—æ³•
+            dbscan.DBscan(datas);
+            //sqlå­˜å‚¨
             String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
             JPACustomDate jpaCustomDate=new JPACustomDate();
-            jpaCustomDate.setCustom_hi_num(0);//Î´ÊµÏÖ
+            jpaCustomDate.setCustom_hi_num(0);//æœªå®ç°
             jpaCustomDate.setCustom_first_num(0);
             jpaCustomDate.setCustom_num(0);
             jpaCustomDate.setAvg_stay_time(0);
             jpaCustomDate.setDevice_num(datas.size());
             jpaCustomDate.setDate(idTime);
-            //Í³¼ÆÔçÉÏ8µãµ½ÍíÉÏ20µã¸÷¸öÊ±¼ä¶ÎÈËÊı
+            //ç»Ÿè®¡æ—©ä¸Š8ç‚¹åˆ°æ™šä¸Š20ç‚¹å„ä¸ªæ—¶é—´æ®µäººæ•°
             HashMap<Integer,Integer> timeHashMap=new HashMap<>();
             for(int i=8;i<=20;i++){
                 timeHashMap.put(i,0);
             }
             for(Data data:datas){
-                if(data.getNum()>2&&data.getNum()<200){//É¸Ñ¡·Ç¿Í»§
-                    Collections.sort(data.getDataDetails(),timeSort);//°´Ê±¼äÅÅĞò
+                if(data.getNum()>2&&data.getNum()<200){//ç­›é€‰éå®¢æˆ·
+                    Collections.sort(data.getDataDetails(),timeSort);//æ—¶é—´æ’åº
                     int[] oneDevice=new int[13];
-                    for(DataDetail dataDetail:data.getDataDetails()){//±éÀúµÃµ½¸÷Ê±¼ä¶ÎÇé¿ö
+                    for(DataDetail dataDetail:data.getDataDetails()){//éå†å¾—åˆ°å„æ—¶é—´æ®µæƒ…å†µ
                         int hour=dataDetail.getTime().getHours();
                         if(hour>=8&&hour<=20&&oneDevice[hour-8]==0){
                             timeHashMap.put(hour,timeHashMap.get(hour)+1);
@@ -195,14 +198,14 @@ public class MacServiceImpl implements MacService {
                     Date lastTime=data.getDataDetails().get(0).getTime();
                     jpaCustomDate.setCustom_num(jpaCustomDate.getCustom_num() + 1);
                     if(!customDao.exists(data.getMAC())){
-                        //ÅĞ¶ÏÎªÊ×´ÎÈëµê¿Í»§
+                        //åˆ¤æ–­ä¸ºé¦–æ¬¡å…¥åº—å®¢æˆ·
                         jpaCustomDate.setCustom_first_num(jpaCustomDate.getCustom_first_num()+1);
                         JPACustom jpaCustom=new JPACustom();
                         jpaCustom.setMac(data.getMAC());
                         jpaCustom.setTime_first(data.getDataDetails().get(0).getTime());
                         customDao.save(jpaCustom);
                     }
-                    //¼ÆËã×¤µêÊ±³¤
+                    //è®¡ç®—é©»åº—æ—¶é•¿
                     double stayTime=(lastTime.getTime()-firstTime.getTime())/60000.00;
                     jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time()+stayTime);
                 }
@@ -237,7 +240,7 @@ public class MacServiceImpl implements MacService {
                 timeNumDao.delete(idTime);
             }
             timeNumDao.save(jpaTimeNum);
-            //·µ»Ø³É¹¦²åÈëµÄÊı¾İ
+            //è¿”å›æˆåŠŸæ’å…¥çš„æ•°æ®
             CustomDateRow customDateRow=new CustomDateRow();
             customDateRow.setDayNum(1);
             customDateRow.setNumFrom8To20(numFrom8To20);
@@ -251,7 +254,7 @@ public class MacServiceImpl implements MacService {
             customDataWithDates.add(customDataWithDate);
             customDateRow.setCustomDataWithDates(customDataWithDates);
             response.setStatus(ResponseStatus.SUCCESS);
-            response.setMessage("Êı¾İ²åÈë³É¹¦");
+            response.setMessage("æ•°æ®æ’å…¥æˆåŠŸ");
             response.setData(customDateRow);
             return response;
         }catch (Exception e){
@@ -276,7 +279,7 @@ public class MacServiceImpl implements MacService {
         try{
             Date startDate=sdf.parse(startTime);
             Date endDate=sdf.parse(endTime);
-            //»ñÈ¡ÆÚ¼äÃ¿ÈÕÊı¾İ
+            //è·å–æœŸé—´æ¯æ—¥æ•°æ®
             CustomDateRow customDateRow=new CustomDateRow();
             int dayNum=(int)((endDate.getTime()-startDate.getTime())/1000*60*24)+1;
             customDateRow.setDayNum(dayNum);
@@ -325,7 +328,7 @@ public class MacServiceImpl implements MacService {
             customDateRow.setNumFrom8To20(numFrom8To20);
             customData.setCustomDateRow(customDateRow);
             response.setStatus(ResponseStatus.SUCCESS);
-            response.setMessage("Êı¾İ²éÑ¯³É¹¦");
+            response.setMessage("æ•°æ®æŸ¥è¯¢æˆåŠŸ");
             response.setData(customData);
             return response;
         }catch (Exception e){
