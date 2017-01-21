@@ -38,6 +38,8 @@ public class MacServiceImpl implements MacService {
     private transient TimeSort timeSort;
     @Autowired
     private transient DBSCANImpl dbscan;
+    @Autowired
+    private transient CutImpl cut;
 
     @Override
     public Response<String> analysis(){
@@ -137,6 +139,9 @@ public class MacServiceImpl implements MacService {
         Response<CustomDateRow>response=new Response<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
+//        String mac1="6c:72:e7:73:f6:09";
+//        String mac2="50:a7:2b:bb:1f:ae";
+//        String mac3="e0:dd:c0:73:67:70";
         try{
             List<Data> datas=new ArrayList<Data>();
             BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\"+fileName));
@@ -155,6 +160,7 @@ public class MacServiceImpl implements MacService {
                     dataDetail.setTime(sdf.parse(json.getString("Time")));
                     data.setDataDetails(new ArrayList<DataDetail>());
                     data.getDataDetails().add(dataDetail);
+                    data.setMinDistance(json.getInt("RSSI"));
                     datas.add(data);
                     hashData.put(json.getString("MAC"),datas.size()-1);
                 }else{
@@ -165,10 +171,15 @@ public class MacServiceImpl implements MacService {
                     dataDetail.setRSSI(json.getInt("RSSI"));
                     dataDetail.setTime(sdf.parse(json.getString("Time")));
                     datas.get(j).getDataDetails().add(dataDetail);
+                    if(datas.get(j).getMinDistance()<dataDetail.getRSSI()){
+                        datas.get(j).setMinDistance(dataDetail.getRSSI());
+                    }
                 }
             }
+            //初步删减
+            datas=cut.CutToCustom(datas);
             //聚类算法
-            dbscan.DBscan(datas);
+            //dbscan.DBscan(datas);
             //sql存储
             String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
             JPACustomDate jpaCustomDate=new JPACustomDate();
@@ -184,7 +195,7 @@ public class MacServiceImpl implements MacService {
                 timeHashMap.put(i,0);
             }
             for(Data data:datas){
-                if(data.getNum()>2&&data.getNum()<200){//筛选非客户
+                if(true){//筛选非客户
                     Collections.sort(data.getDataDetails(),timeSort);//时间排序
                     int[] oneDevice=new int[13];
                     for(DataDetail dataDetail:data.getDataDetails()){//遍历得到各时间段情况

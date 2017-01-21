@@ -12,4 +12,6 @@ public class Data {
     private List<DataDetail> dataDetails;
 
     private int num;
+
+    private int minDistance;
 }

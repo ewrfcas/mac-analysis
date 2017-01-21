@@ -5,9 +5,15 @@ import com.mac.model.DataDetail;
 import com.mac.model.dataset.Cluster;
 import com.mac.model.dataset.DataSet;
 import com.mac.util.TimeSort;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.*;
 
 /**
@@ -85,7 +91,7 @@ public class DBSCANImpl {
             cluster.setDataSets(dataSetsInCluster);
             clusters.add(cluster);
         }
-        int a=111;
+        toExcel(dataSets);
     }
 
     public List<DataSet> getDataSet(List<Data> datas){
@@ -105,10 +111,30 @@ public class DBSCANImpl {
                     sumRSSI+=dataDetail.getRSSI();
                 }
                 dataSet.setRSSIAvg(sumRSSI/data.getDataDetails().size());
+                //if(dataSet.getRSSIAvg()<=0-90)continue;
                 dataSet.setCanUse(true);//设置可用
                 dataSets.add(dataSet);
             }
         }
         return dataSets;
+    }
+
+    public void toExcel(List<DataSet> dataSets){
+        try{
+            File excelFile = new File("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\macData1.xlsx");
+            OutputStream outputStream=new FileOutputStream(excelFile);
+            XSSFWorkbook excelWrite = new XSSFWorkbook();
+            XSSFSheet sheetOut=excelWrite.createSheet("data");
+            int i=0;
+            for(DataSet dataSet:dataSets){
+                XSSFRow rowOut=sheetOut.createRow(i++);
+                rowOut.createCell(0).setCellValue(0-dataSet.getRSSIAvg());
+                rowOut.createCell(1).setCellValue(dataSet.getTime());
+            }
+            excelWrite.write(outputStream);
+            outputStream.flush();
+            outputStream.close();
+        }catch (Exception e){
+        }
     }
 }
