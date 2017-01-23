@@ -139,9 +139,9 @@ public class MacServiceImpl implements MacService {
         Response<CustomDateRow>response=new Response<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
-//        String mac1="6c:72:e7:73:f6:09";
-//        String mac2="50:a7:2b:bb:1f:ae";
-//        String mac3="e0:dd:c0:73:67:70";
+//        String mac1="6c:72:e7:73:f6:09";//sun
+        String mac2="50:a7:2b:bb:1f:ae";//cao
+        String mac3="e0:dd:c0:73:67:70";//song
         try{
             List<Data> datas=new ArrayList<Data>();
             BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\"+fileName));
@@ -176,50 +176,74 @@ public class MacServiceImpl implements MacService {
                     }
                 }
             }
-            //初步删减
-            datas=cut.CutToCustom(datas);
-            //聚类算法
-            //dbscan.DBscan(datas);
-            //sql存储
-            String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
             JPACustomDate jpaCustomDate=new JPACustomDate();
+            jpaCustomDate.setDevice_num(datas.size());
+            String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
             jpaCustomDate.setCustom_hi_num(0);//未实现
             jpaCustomDate.setCustom_first_num(0);
             jpaCustomDate.setCustom_num(0);
             jpaCustomDate.setAvg_stay_time(0);
-            jpaCustomDate.setDevice_num(datas.size());
             jpaCustomDate.setDate(idTime);
+
+//            Data data1=new Data();
+//            for(Data data:datas){
+//                if(data.getMAC().equals(mac3)){
+//                    Collections.sort(data.getDataDetails(),timeSort);//时间排序
+//                    data1=data;
+//                }
+//            }
+
+            //初步删减
+            datas=cut.CutToCustom(datas);
+            //聚类算法
+//            dbscan.DBscan(datas);
+            //sql存储
             //统计早上8点到晚上20点各个时间段人数
             HashMap<Integer,Integer> timeHashMap=new HashMap<>();
             for(int i=8;i<=20;i++){
                 timeHashMap.put(i,0);
             }
             for(Data data:datas){
-                if(true){//筛选非客户
-                    Collections.sort(data.getDataDetails(),timeSort);//时间排序
-                    int[] oneDevice=new int[13];
-                    for(DataDetail dataDetail:data.getDataDetails()){//遍历得到各时间段情况
-                        int hour=dataDetail.getTime().getHours();
-                        if(hour>=8&&hour<=20&&oneDevice[hour-8]==0){
-                            timeHashMap.put(hour,timeHashMap.get(hour)+1);
-                            oneDevice[hour-8]++;
-                        }
+                Collections.sort(data.getDataDetails(),timeSort);//时间排序
+                int[] oneDevice=new int[13];
+                for(DataDetail dataDetail:data.getDataDetails()){//遍历得到各时间段情况
+                    int hour=dataDetail.getTime().getHours();
+                    if(hour>=8&&hour<=20&&oneDevice[hour-8]==0){
+                        timeHashMap.put(hour,timeHashMap.get(hour)+1);
+                        oneDevice[hour-8]++;
                     }
-                    Date firstTime=data.getDataDetails().get(data.getDataDetails().size()-1).getTime();
-                    Date lastTime=data.getDataDetails().get(0).getTime();
-                    jpaCustomDate.setCustom_num(jpaCustomDate.getCustom_num() + 1);
-                    if(!customDao.exists(data.getMAC())){
-                        //判断为首次入店客户
-                        jpaCustomDate.setCustom_first_num(jpaCustomDate.getCustom_first_num()+1);
-                        JPACustom jpaCustom=new JPACustom();
-                        jpaCustom.setMac(data.getMAC());
-                        jpaCustom.setTime_first(data.getDataDetails().get(0).getTime());
+                }
+                Date firstTime=data.getDataDetails().get(data.getDataDetails().size()-1).getTime();
+                Date lastTime=data.getDataDetails().get(0).getTime();
+                jpaCustomDate.setCustom_num(jpaCustomDate.getCustom_num() + 1);
+                if(!customDao.exists(data.getMAC())){//判断为首次入店客户
+                    jpaCustomDate.setCustom_first_num(jpaCustomDate.getCustom_first_num()+1);
+                    JPACustom jpaCustom=new JPACustom();
+                    jpaCustom.setMac(data.getMAC());
+                    jpaCustom.setTime_first(data.getDataDetails().get(0).getTime());
+                    jpaCustom.setLast_sta_time(data.getDataDetails().get(0).getTime());
+                    jpaCustom.setCount(1);
+                    jpaCustom.setIs_staff(0);
+                    customDao.save(jpaCustom);
+                }else{//非首次入店，追加判断是否是店员
+                    JPACustom jpaCustom=new JPACustom();
+                    jpaCustom=customDao.findOne(data.getMAC());
+                    if((data.getDataDetails().get(0).getTime().getTime()-jpaCustom.getLast_sta_time().getTime())/(60000*60*24)>=14){
+                    //达到超过14天，进行一次归零统计
+                        if(jpaCustom.getCount()>=4){
+                            jpaCustom.setIs_staff(1);
+                        }else{
+                            jpaCustom.setIs_staff(0);
+                        }
+                        jpaCustom.setLast_sta_time(data.getDataDetails().get(0).getTime());
+                        jpaCustom.setCount(1);
+                        customDao.delete(data.getMAC());
                         customDao.save(jpaCustom);
                     }
-                    //计算驻店时长
-                    double stayTime=(lastTime.getTime()-firstTime.getTime())/60000.00;
-                    jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time()+stayTime);
                 }
+                //计算驻店时长
+                double stayTime=cut.getStayTime(data.getDataDetails());
+                jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time()+stayTime);
             }
             jpaCustomDate.setAvg_stay_time(jpaCustomDate.getAvg_stay_time() / jpaCustomDate.getCustom_num());
             if(customDateDao.exists(idTime)){
