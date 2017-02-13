@@ -33,7 +33,7 @@ public class CutImpl {
                 }
                 List<DataDetail> dataDetailsReal=new ArrayList<>();
                 for(DataDetail dataDetail:data.getDataDetails()){//只获取-70以内的数据作为店内数据
-                    if(dataDetail.getRSSI()>-70&&!dataDetail.getDeviceId().equals("8482f42f22d8")){//无视休息室的设备
+                    if(dataDetail.getRSSI()>-70&&!dataDetail.getDeviceId().equals("8482f42f22d8")){//无视休息室的设备&&!dataDetail.getDeviceId().equals("8482f42f22d8")
                         dataDetailsReal.add(dataDetail);
                     }
                 }

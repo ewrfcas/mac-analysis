@@ -196,7 +196,7 @@ public class MacServiceImpl implements MacService {
             //初步删减
             datas=cut.CutToCustom(datas);
             //聚类算法
-//            dbscan.DBscan(datas);
+            dbscan.DBscan(datas);
             //sql存储
             //统计早上8点到晚上20点各个时间段人数
             HashMap<Integer,Integer> timeHashMap=new HashMap<>();
@@ -230,13 +230,17 @@ public class MacServiceImpl implements MacService {
                     jpaCustom=customDao.findOne(data.getMAC());
                     if((data.getDataDetails().get(0).getTime().getTime()-jpaCustom.getLast_sta_time().getTime())/(60000*60*24)>=14){
                     //达到超过14天，进行一次归零统计
-                        if(jpaCustom.getCount()>=4){
+                        if(jpaCustom.getCount()>=6){
                             jpaCustom.setIs_staff(1);
                         }else{
                             jpaCustom.setIs_staff(0);
                         }
                         jpaCustom.setLast_sta_time(data.getDataDetails().get(0).getTime());
                         jpaCustom.setCount(1);
+                        customDao.delete(data.getMAC());
+                        customDao.save(jpaCustom);
+                    }else{//距离上次统计未到14天，计数+1
+                        jpaCustom.setCount(jpaCustom.getCount()+1);
                         customDao.delete(data.getMAC());
                         customDao.save(jpaCustom);
                     }
