@@ -47,7 +47,7 @@ public class MacServiceImpl implements MacService {
         List<Data> datas=new ArrayList<Data>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         try{
-            BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\2016-11-21_store_139.txt"));
+            BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\data\\2016-11-21_store_139.txt"));
             BufferedWriter bwname = new BufferedWriter(new FileWriter("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\result.json"));
             File excelFile = new File("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\分析结果.xlsx");
             OutputStream outputStream=new FileOutputStream(excelFile);
@@ -139,12 +139,12 @@ public class MacServiceImpl implements MacService {
         Response<CustomDateRow>response=new Response<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
-//        String mac1="6c:72:e7:73:f6:09";//sun
         String mac2="50:a7:2b:bb:1f:ae";//cao
         String mac3="e0:dd:c0:73:67:70";//song
         try{
-            List<Data> datas=new ArrayList<Data>();
-            BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\"+fileName));
+            List<Data> datas=new ArrayList<Data>();//普通
+            List<Data> datasHigh=new ArrayList<>();//高意向
+            BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\data\\"+fileName));
             String s=null;
             HashMap<String,Integer> hashData=new HashMap<>();
             //解析数据
@@ -185,6 +185,7 @@ public class MacServiceImpl implements MacService {
             jpaCustomDate.setAvg_stay_time(0);
             jpaCustomDate.setDate(idTime);
 
+            //查看song的位置
 //            Data data1=new Data();
 //            for(Data data:datas){
 //                if(data.getMAC().equals(mac3)){
@@ -193,10 +194,15 @@ public class MacServiceImpl implements MacService {
 //                }
 //            }
 
+            //获取车内探测器（高意向）??????????
+            datasHigh=cut.cutToHigh(datas);
+            jpaCustomDate.setCustom_hi_num(datasHigh.size());
             //初步删减
-            datas=cut.CutToCustom(datas);
+            datas=cut.cutToCustom(datas);
+            //批次合并
+            datas=cut.allInOne(datas);
             //聚类算法
-            dbscan.DBscan(datas);
+//            dbscan.DBscan(datas);
             //sql存储
             //统计早上8点到晚上20点各个时间段人数
             HashMap<Integer,Integer> timeHashMap=new HashMap<>();
@@ -226,24 +232,20 @@ public class MacServiceImpl implements MacService {
                     jpaCustom.setIs_staff(0);
                     customDao.save(jpaCustom);
                 }else{//非首次入店，追加判断是否是店员
-                    JPACustom jpaCustom=new JPACustom();
-                    jpaCustom=customDao.findOne(data.getMAC());
-                    if((data.getDataDetails().get(0).getTime().getTime()-jpaCustom.getLast_sta_time().getTime())/(60000*60*24)>=14){
-                    //达到超过14天，进行一次归零统计
-                        if(jpaCustom.getCount()>=6){
-                            jpaCustom.setIs_staff(1);
-                        }else{
-                            jpaCustom.setIs_staff(0);
-                        }
-                        jpaCustom.setLast_sta_time(data.getDataDetails().get(0).getTime());
-                        jpaCustom.setCount(1);
-                        customDao.delete(data.getMAC());
-                        customDao.save(jpaCustom);
-                    }else{//距离上次统计未到14天，计数+1
-                        jpaCustom.setCount(jpaCustom.getCount()+1);
-                        customDao.delete(data.getMAC());
-                        customDao.save(jpaCustom);
-                    }
+//                    JPACustom jpaCustom=new JPACustom();
+//                    jpaCustom=customDao.findOne(data.getMAC());
+//                    if((data.getDataDetails().get(0).getTime().getTime()-jpaCustom.getLast_sta_time().getTime())/(60000*60*24)>=14){
+//                        //达到超过14天，进行一次归零统计
+//                        jpaCustom.setLast_sta_time(data.getDataDetails().get(0).getTime());
+//                        jpaCustom.setCount(1);
+//                        customDao.delete(data.getMAC());
+//                        customDao.save(jpaCustom);
+//                    }else{//距离上次统计未到14天，计数+1
+//                        jpaCustom.setCount(jpaCustom.getCount()+1);
+//                        if(jpaCustom.getCount()>=5)jpaCustom.setIs_staff(1);
+//                        customDao.delete(data.getMAC());
+//                        customDao.save(jpaCustom);
+//                    }
                 }
                 //计算驻店时长
                 double stayTime=cut.getStayTime(data.getDataDetails());
@@ -297,7 +299,7 @@ public class MacServiceImpl implements MacService {
             response.setData(customDateRow);
             return response;
         }catch (Exception e){
-            e.printStackTrace();;
+            e.printStackTrace();
             response.setStatus(ResponseStatus.FAIL);
             response.setMessage(e.toString());
             return response;
