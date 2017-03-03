@@ -100,7 +100,7 @@ public class MacServiceImpl implements MacService {
                 rowOut.createCell(0).setCellValue(num);
                 rowOut.createCell(1).setCellValue(map.get(num));
             }
-            //Excel
+            //Excel end
 
             //json
             for(Data data:datas){
@@ -118,7 +118,7 @@ public class MacServiceImpl implements MacService {
 //                bwname.newLine();
 //                bwname.newLine();
             }
-            //json
+            //json end
             excelWrite.write(outputStream);
             outputStream.flush();
             outputStream.close();
@@ -143,39 +143,8 @@ public class MacServiceImpl implements MacService {
         String mac3="e0:dd:c0:73:67:70";//song
         try{
             List<Data> datas=new ArrayList<Data>();//普通
+            datas=getDataFromTxt(fileName);
             List<Data> datasHigh=new ArrayList<>();//高意向
-            BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\data\\"+fileName));
-            String s=null;
-            HashMap<String,Integer> hashData=new HashMap<>();
-            //解析数据
-            while((s=brname.readLine())!=null){
-                JSONObject json=new JSONObject(s);
-                if(!hashData.containsKey(json.getString("MAC"))){
-                    Data data=new Data();
-                    data.setNum(1);
-                    data.setMAC(json.getString("MAC"));
-                    DataDetail dataDetail=new DataDetail();
-                    dataDetail.setDeviceId(json.getString("Device"));
-                    dataDetail.setRSSI(json.getInt("RSSI"));
-                    dataDetail.setTime(sdf.parse(json.getString("Time")));
-                    data.setDataDetails(new ArrayList<DataDetail>());
-                    data.getDataDetails().add(dataDetail);
-                    data.setMinDistance(json.getInt("RSSI"));
-                    datas.add(data);
-                    hashData.put(json.getString("MAC"),datas.size()-1);
-                }else{
-                    int j=hashData.get(json.getString("MAC"));
-                    datas.get(j).setNum(datas.get(j).getNum()+1);
-                    DataDetail dataDetail=new DataDetail();
-                    dataDetail.setDeviceId(json.getString("Device"));
-                    dataDetail.setRSSI(json.getInt("RSSI"));
-                    dataDetail.setTime(sdf.parse(json.getString("Time")));
-                    datas.get(j).getDataDetails().add(dataDetail);
-                    if(datas.get(j).getMinDistance()<dataDetail.getRSSI()){
-                        datas.get(j).setMinDistance(dataDetail.getRSSI());
-                    }
-                }
-            }
             JPACustomDate jpaCustomDate=new JPACustomDate();
             jpaCustomDate.setDevice_num(datas.size());
             String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
@@ -197,10 +166,13 @@ public class MacServiceImpl implements MacService {
             //获取车内探测器（高意向）??????????
             datasHigh=cut.cutToHigh(datas);
             jpaCustomDate.setCustom_hi_num(datasHigh.size());
+            int distanceIn=-70;
+            int distanceIg=-70;
+            int m=5;
             //初步删减
-            datas=cut.cutToCustom(datas);
+            datas=cut.cutToCustom(distanceIn,distanceIg,datas);
             //批次合并
-            datas=cut.allInOne(datas);
+            datas=cut.allInOne(m,datas);
             //聚类算法
 //            dbscan.DBscan(datas);
             //sql存储
@@ -222,6 +194,14 @@ public class MacServiceImpl implements MacService {
                 Date firstTime=data.getDataDetails().get(data.getDataDetails().size()-1).getTime();
                 Date lastTime=data.getDataDetails().get(0).getTime();
                 jpaCustomDate.setCustom_num(jpaCustomDate.getCustom_num() + 1);
+                if(data.getMacs().size()>1){
+                    for(String s1:data.getMacs()){
+                        if(customDao.exists(s1)){//发现同一批次有曾经入店的客户,则替换主要人物
+                            data.setMAC(s1);
+                            break;
+                        }
+                    }
+                }
                 if(!customDao.exists(data.getMAC())){//判断为首次入店客户
                     jpaCustomDate.setCustom_first_num(jpaCustomDate.getCustom_first_num()+1);
                     JPACustom jpaCustom=new JPACustom();
@@ -238,14 +218,12 @@ public class MacServiceImpl implements MacService {
 //                        //达到超过14天，进行一次归零统计
 //                        jpaCustom.setLast_sta_time(data.getDataDetails().get(0).getTime());
 //                        jpaCustom.setCount(1);
-//                        customDao.delete(data.getMAC());
-//                        customDao.save(jpaCustom);
 //                    }else{//距离上次统计未到14天，计数+1
 //                        jpaCustom.setCount(jpaCustom.getCount()+1);
 //                        if(jpaCustom.getCount()>=5)jpaCustom.setIs_staff(1);
-//                        customDao.delete(data.getMAC());
-//                        customDao.save(jpaCustom);
 //                    }
+//                    customDao.delete(data.getMAC());
+//                    customDao.save(jpaCustom);
                 }
                 //计算驻店时长
                 double stayTime=cut.getStayTime(data.getDataDetails());
@@ -303,6 +281,49 @@ public class MacServiceImpl implements MacService {
             response.setStatus(ResponseStatus.FAIL);
             response.setMessage(e.toString());
             return response;
+        }
+    }
+
+    @Override
+    public List<Data> getDataFromTxt(String path){
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        List<Data> datas=new ArrayList<Data>();//普通
+        try{
+            BufferedReader brname = new BufferedReader(new FileReader("C:\\Users\\ewrfcas\\Desktop\\mac-analysis\\data\\"+path));
+            String s=null;
+            HashMap<String,Integer> hashData=new HashMap<>();
+            //解析数据
+            while((s=brname.readLine())!=null){
+                JSONObject json=new JSONObject(s);
+                if(!hashData.containsKey(json.getString("MAC"))){
+                    Data data=new Data();
+                    data.setNum(1);
+                    data.setMAC(json.getString("MAC"));
+                    DataDetail dataDetail=new DataDetail();
+                    dataDetail.setDeviceId(json.getString("Device"));
+                    dataDetail.setRSSI(json.getInt("RSSI"));
+                    dataDetail.setTime(sdf.parse(json.getString("Time")));
+                    data.setDataDetails(new ArrayList<DataDetail>());
+                    data.getDataDetails().add(dataDetail);
+                    data.setMinDistance(json.getInt("RSSI"));
+                    datas.add(data);
+                    hashData.put(json.getString("MAC"),datas.size()-1);
+                }else{
+                    int j=hashData.get(json.getString("MAC"));
+                    datas.get(j).setNum(datas.get(j).getNum()+1);
+                    DataDetail dataDetail=new DataDetail();
+                    dataDetail.setDeviceId(json.getString("Device"));
+                    dataDetail.setRSSI(json.getInt("RSSI"));
+                    dataDetail.setTime(sdf.parse(json.getString("Time")));
+                    datas.get(j).getDataDetails().add(dataDetail);
+                    if(datas.get(j).getMinDistance()<dataDetail.getRSSI()){
+                        datas.get(j).setMinDistance(dataDetail.getRSSI());
+                    }
+                }
+            }
+            return datas;
+        }catch (Exception e){
+            return null;
         }
     }
 

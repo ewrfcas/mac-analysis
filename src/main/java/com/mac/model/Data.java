@@ -14,4 +14,6 @@ public class Data {
     private int num;
 
     private int minDistance;
+
+    private List<String> macs;//同一批次的人（包括自己）
 }

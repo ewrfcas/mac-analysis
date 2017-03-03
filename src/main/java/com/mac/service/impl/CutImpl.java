@@ -23,10 +23,10 @@ public class CutImpl {
     private transient CustomDao customDao;
 
     //筛选
-    public List<Data> cutToCustom(List<Data> datas){
+    public List<Data> cutToCustom(int distanceIn,int distanceIg,List<Data> datas){
         List<Data> datasReal=new ArrayList<>();
         for(Data data:datas){
-            if(data.getMinDistance()>-70){//进店条件
+            if(data.getMinDistance()>distanceIn){//进店条件
                 //过滤员工
                 if(customDao.exists(data.getMAC())){
                     if(customDao.findOne(data.getMAC()).getIs_staff()==1)continue;//是员工,忽略
@@ -34,11 +34,11 @@ public class CutImpl {
                 List<DataDetail> dataDetailsReal=new ArrayList<>();
                 boolean flagInFix=false;
                 for(DataDetail dataDetail:data.getDataDetails()){//只获取-70以内的数据作为店内数据
-                    if(dataDetail.getDeviceId().equals("8482f42f22d8")&&dataDetail.getRSSI()>-70){//休息室内（或者修车）
+                    if(dataDetail.getDeviceId().equals("8482f42f22d8")&&dataDetail.getRSSI()>distanceIg){//休息室内（或者修车）
                         flagInFix=true;
                         break;
                     }
-                    if(dataDetail.getRSSI()>-70&&dataDetail.getDeviceId().length()>10){
+                    if(dataDetail.getRSSI()>distanceIn&&dataDetail.getDeviceId().length()>10){//长度10以上是位置探测器（12位）
                         dataDetailsReal.add(dataDetail);
                     }
                 }
@@ -80,22 +80,26 @@ public class CutImpl {
         return datasReal;
     }
     //批次合并
-    public List<Data> allInOne(List<Data> datas){
+    public List<Data> allInOne(int m,List<Data> datas){
         List<Data> datasReal=new ArrayList<>();
         for(Data data:datas){
             if(data.getMAC().equals("merged"))continue;//如果已经合并，则忽略
+            List<String> macs=new ArrayList<>();
+            macs.add(data.getMAC());
             for(Data data1:datas){
-                if(data1.getMAC().equals(data.getMAC()))continue;
+                if(data1.getMAC().equals(data.getMAC())||data1.getMAC().equals("merged"))continue;//排除自己和已经合并的
                 //出店时间差
                 double outTime=Math.abs(data.getDataDetails().get(0).getTime().getTime()
                         -data1.getDataDetails().get(0).getTime().getTime());
                 //入店时间差
                 double inTime=Math.abs(data.getDataDetails().get(data.getDataDetails().size()-1).getTime().getTime()
                         -data1.getDataDetails().get(data1.getDataDetails().size()-1).getTime().getTime());
-                if(inTime<3*60*1000&&outTime<3*60*1000){//如果进店和出店的时间差都没有超过10min，我们认为是同一批次的顾客
+                if(inTime<m*60*1000&&outTime<m*60*1000){//如果进店和出店的时间差都没有超过xmin，我们认为是同一批次的顾客
+                    macs.add(data1.getMAC());
                     data1.setMAC("merged");
                 }
             }
+            data.setMacs(macs);
             datasReal.add(data);
         }
         return datasReal;
