@@ -59,8 +59,9 @@ public class CutImpl {
         }
         return datasReal;
     }
-    //高意向????????????????
-    public List<Data> cutToHigh(List<Data> datas){
+
+    //高意向
+    public List<Data> cutToHigh(List<Data> datas,int distanceIn){
         List<Data> datasReal=new ArrayList<>();
         for(Data data:datas){
             List<DataDetail> dataDetailsReal=new ArrayList<>();
@@ -70,11 +71,23 @@ public class CutImpl {
                 }
             }
             if(dataDetailsReal.size()>=1){
-                Data dataTemp=new Data();
-                dataTemp.setDataDetails(dataDetailsReal);
-                dataTemp.setNum(dataDetailsReal.size());
-                dataTemp.setMAC(data.getMAC());
-                datasReal.add(dataTemp);
+                List<DataDetail> dataDetails=new ArrayList<>();//普通探测器定位
+                for(DataDetail dataDetail:data.getDataDetails()){
+                    if(dataDetail.getRSSI()>distanceIn&&dataDetail.getDeviceId().length()>10){//获取可能高意向客户的数据
+                        dataDetails.add(dataDetail);
+                    }
+                }
+                if(dataDetails.size()>=2){
+                    Collections.sort(dataDetails,timeSort);//时间排序
+                    double stayTime=getStayTime(dataDetails);
+                    if(stayTime>=15){
+                        Data dataTemp=new Data();
+                        dataTemp.setDataDetails(dataDetailsReal);
+                        dataTemp.setNum(dataDetailsReal.size());
+                        dataTemp.setMAC(data.getMAC());
+                        datasReal.add(dataTemp);
+                    }
+                }
             }
         }
         return datasReal;

@@ -21,8 +21,8 @@ public class MacController {
 
     //数据存储（存储一天检测到的mac信号到sql）
     @RequestMapping(value="/save/data" ,method = RequestMethod.GET)
-    public Response<CustomDateRow> save(String fileName) {
-        return macService.save(fileName);
+    public Response<CustomDateRow> save(String fileName,String storeId) {
+        return macService.save(fileName,storeId);
     }
 
     //输入开始时间，结束时间 返回开始时间——结束时间（日）中间的客流信息CustomData

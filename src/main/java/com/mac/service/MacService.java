@@ -13,7 +13,7 @@ import java.util.List;
 @SuppressWarnings("all")
 public interface MacService {
     Response<String> analysis();
-    Response<CustomDateRow>save(String fileName);
+    Response<CustomDateRow>save(String fileName,String storeId);
     Response<CustomData>getAllCustoms(String startTime,String endTime);
     List<Data> getDataFromTxt(String path);
 }

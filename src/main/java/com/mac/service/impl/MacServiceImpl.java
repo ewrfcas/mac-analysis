@@ -2,10 +2,12 @@ package com.mac.service.impl;
 
 import com.mac.dao.CustomDao;
 import com.mac.dao.CustomDateDao;
+import com.mac.dao.ParamDataDao;
 import com.mac.dao.TimeNumDao;
 import com.mac.model.*;
 import com.mac.model.jpa.JPACustom;
 import com.mac.model.jpa.JPACustomDate;
+import com.mac.model.jpa.JPAParamData;
 import com.mac.model.jpa.JPATimeNum;
 import com.mac.service.MacService;
 import com.mac.util.Response;
@@ -34,6 +36,8 @@ public class MacServiceImpl implements MacService {
     private transient CustomDateDao customDateDao;
     @Autowired
     private transient TimeNumDao timeNumDao;
+    @Autowired
+    private transient ParamDataDao paramDataDao;
     @Autowired
     private transient TimeSort timeSort;
     @Autowired
@@ -135,7 +139,7 @@ public class MacServiceImpl implements MacService {
     }
 
     @Override
-    public Response<CustomDateRow> save(String fileName){
+    public Response<CustomDateRow> save(String fileName,String storeId){
         Response<CustomDateRow>response=new Response<>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
@@ -143,8 +147,8 @@ public class MacServiceImpl implements MacService {
         String mac3="e0:dd:c0:73:67:70";//song
         try{
             List<Data> datas=new ArrayList<Data>();//普通
+            List<Data> highDatas=new ArrayList<>();//高意向
             datas=getDataFromTxt(fileName);
-            List<Data> datasHigh=new ArrayList<>();//高意向
             JPACustomDate jpaCustomDate=new JPACustomDate();
             jpaCustomDate.setDevice_num(datas.size());
             String idTime=sdf2.format(datas.get(0).getDataDetails().get(0).getTime());
@@ -162,25 +166,28 @@ public class MacServiceImpl implements MacService {
 //                    data1=data;
 //                }
 //            }
-
-            //获取车内探测器（高意向）??????????
-            datasHigh=cut.cutToHigh(datas);
-            jpaCustomDate.setCustom_hi_num(datasHigh.size());
-            int distanceIn=-70;
-            int distanceIg=-70;
-            int m=5;
+            //获取静态变量
+            JPAParamData jpaParamData=new JPAParamData();
+            jpaParamData=paramDataDao.findOne(storeId);
+            int distanceIn=jpaParamData.getDistance_in();
+            int distanceIg=jpaParamData.getDistance_ig();
+            int m=jpaParamData.getMinutes();
+            //高意向筛选
+            highDatas=cut.cutToHigh(datas,distanceIn);
+            //高意向
+            jpaCustomDate.setCustom_hi_num(highDatas.size());
             //初步删减
             datas=cut.cutToCustom(distanceIn,distanceIg,datas);
             //批次合并
             datas=cut.allInOne(m,datas);
-            //聚类算法
-//            dbscan.DBscan(datas);
+
             //sql存储
             //统计早上8点到晚上20点各个时间段人数
             HashMap<Integer,Integer> timeHashMap=new HashMap<>();
             for(int i=8;i<=20;i++){
                 timeHashMap.put(i,0);
             }
+
             for(Data data:datas){
                 Collections.sort(data.getDataDetails(),timeSort);//时间排序
                 int[] oneDevice=new int[13];
